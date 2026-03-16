@@ -2,10 +2,11 @@ import redis
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
 from backend.auth.jwt_handler import create_access_token, create_refresh_token, verify_token
-from backend.database import get_user, verify_password, create_user # Assuming you have create_user in database.py
+from backend.database import get_user, verify_password, create_user
+from backend.config import REDIS_URL # Import REDIS_URL for Redis connection
 
 # Connect to Redis for the logout blacklist
-redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -55,10 +56,14 @@ def refresh(body: RefreshRequest):
 @router.post("/logout")
 def logout(authorization: str = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise HTTPException(status_code=400, detail="Invalid Authorization header")
     
     # Extract the token
     token = authorization.split(" ")[1]
+    
+    # Verify the token before blacklisting it
+    if not verify_token(token, expected_type="access"):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     
     # Add token to Redis blacklist for 1 hour (3600 seconds)
     redis_client.setex(f"blacklist:{token}", 3600, "true")
