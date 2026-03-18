@@ -26,7 +26,7 @@ def register(body: AuthRequest):
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     
-    # Save to database (Make sure create_user handles hashing the password!)
+    # Save to database
     create_user(body.username, body.password)
     return {"message": "User registered successfully"}
 

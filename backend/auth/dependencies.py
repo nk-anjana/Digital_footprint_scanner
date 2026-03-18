@@ -2,6 +2,8 @@ from fastapi import Request, HTTPException, status
 from jose import jwt, JWTError
 
 from backend.config import SECRET_KEY, ALGORITHM
+# Import the Redis client to check for blacklisted tokens
+from backend.auth.routes import redis_client
 
 
 def get_current_user(request: Request) -> str:
@@ -23,6 +25,14 @@ def get_current_user(request: Request) -> str:
     #Extract token
     token = auth_header.split(" ")[1]
 
+    # Check if token is in the logout blacklist
+    if redis_client.get(f"blacklist:{token}"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         #Decode JWT
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -36,6 +46,7 @@ def get_current_user(request: Request) -> str:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token",
+                headers={"WWW-Authenticate": "Bearer"},
             )
 
         return username
@@ -45,4 +56,5 @@ def get_current_user(request: Request) -> str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
         )
