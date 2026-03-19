@@ -4,11 +4,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # JWT
+# backend/config.py
 
 SECRET_KEY: str = os.getenv("SECRET_KEY", "your-very-secret-key-is-not-safe-in-code")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+REFRESH_TOKEN_EXPIRE_DAYS = 7  # <--- This is the line you are likely missing!
 
 # MySQL
 DB_HOST: str = os.getenv("DB_HOST", "localhost")

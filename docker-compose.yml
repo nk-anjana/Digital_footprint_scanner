@@ -2,36 +2,6 @@ version: "3.9"
 
 services:
 
-  backend:
-    build: .
-    container_name: osint_backend
-    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
-    environment:
-      - DB_HOST=mysql
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - mysql
-      - redis
-    restart: on-failure
-
-  worker:
-    build: .
-    container_name: osint_worker
-    command: celery -A backend.celery_worker.celery_app worker --loglevel=info
-    volumes:
-      - .:/app
-    environment:
-      - DB_HOST=mysql
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - mysql
-      - redis
-    restart: on-failure
-
   redis:
     image: redis:alpine
     ports:
