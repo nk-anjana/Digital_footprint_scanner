@@ -28,3 +28,6 @@ slowapi>=0.1.9
 
 # File Uploads (multipart/form-data)
 python-multipart>=0.0.9
+streamlit>=1.32.0
+requests>=2.31.0
+pandas>=2.0.0

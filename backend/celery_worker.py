@@ -1,4 +1,5 @@
 import asyncio
+import socket
 from celery import Celery
 from backend.config import REDIS_URL
 from backend.database import update_scan_result
@@ -25,6 +26,9 @@ def calculate_risk(findings: list) -> int:
             score += 25 if f.get("severity") == "CRITICAL" else 15
         elif f.get("type") == "username":
             score += 5
+        # Add a small base score for domain info
+        elif f.get("type") == "domain":
+            score += 10
     return min(score, 100)
 
 @celery_app.task(name="run_osint_scan", bind=True, max_retries=2)
@@ -59,6 +63,25 @@ def run_osint_scan(self, scan_id: str, email: str, username: str, domain: str):
                         "value": s.get("site"), 
                         "url": s.get("url"),
                     })
+
+            # 3. Check Domains (DNS Lookup)
+            if domain:
+                try:
+                    ip_address = socket.gethostbyname(domain)
+                    findings.append({
+                        "type": "domain",
+                        "source": "DNS",
+                        "value": f"Resolved IP: {ip_address}",
+                        "severity": "INFO"
+                    })
+                except socket.gaierror:
+                    findings.append({
+                        "type": "domain",
+                        "source": "DNS",
+                        "value": f"Domain could not be resolved.",
+                        "severity": "LOW"
+                    })
+
             
             return findings
 

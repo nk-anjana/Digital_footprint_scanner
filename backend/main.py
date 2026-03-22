@@ -68,7 +68,8 @@ class ScanRequest(BaseModel):
     @model_validator(mode="after")
     def validate_single_option(self):
         provided = [self.email, self.username, self.domain]
-        active = [x for x in provided if x is not None]
+        # FIX: Changed from 'if x is not None' to 'if x' to ignore empty strings like ""
+        active = [x for x in provided if x]
 
         if len(active) != 1:
             raise ValueError("Provide exactly ONE: email, username or domain")

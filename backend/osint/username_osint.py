@@ -9,6 +9,50 @@ from backend.config import SHERLOCK_URL, REDIS_URL, SHERLOCK_SITE_LIMIT
 
 logger = logging.getLogger("osint_api")
 
+FALLBACK_SITES = {
+    "GitHub": {
+        "errorType": "status_code",
+        "url": "https://github.com/{}"
+    },
+    "Twitter": {
+        "errorType": "status_code",
+        "url": "https://twitter.com/{}"
+    },
+    "Instagram": {
+        "errorType": "status_code",
+        "url": "https://www.instagram.com/{}"
+    },
+    "Reddit": {
+        "errorType": "status_code",
+        "url": "https://www.reddit.com/user/{}/"
+    },
+    "Medium": {
+        "errorType": "status_code",
+        "url": "https://medium.com/@{}"
+    },
+    "Patreon": {
+        "errorType": "status_code",
+        "url": "https://www.patreon.com/{}"
+    },
+    "TikTok": {
+        "errorType": "status_code",
+        "url": "https://www.tiktok.com/@{}"
+    },
+    "Twitch": {
+        "errorType": "status_code",
+        "url": "https://www.twitch.tv/{}"
+    },
+    "Snapchat": {
+        "errorType": "status_code",
+        "url": "https://www.snapchat.com/add/{}"
+    },
+    "Telegram": {
+        "errorType": "message",
+        "url": "https://t.me/{}",
+        "errorMsg": "If you have <strong>Telegram</strong>, you can contact <a class=\"tgme_head_dl_button\""
+    }
+}
+
 # Establish a Redis connection. In a larger app, this might be a shared utility.
 try:
     redis_client = redis.from_url(REDIS_URL, decode_responses=True)
@@ -31,15 +75,19 @@ async def _get_sherlock_sites(client: httpx.AsyncClient) -> dict:
 
     # 2. If not in cache, fetch from source
     logger.info("Fetching Sherlock sites from source...")
-    sites_resp = await client.get(SHERLOCK_URL)
-    sites_resp.raise_for_status()  # Will raise an exception for 4xx/5xx responses
-    all_sites = sites_resp.json()
+    try:
+        sites_resp = await client.get(SHERLOCK_URL)
+        sites_resp.raise_for_status()  # Will raise an exception for 4xx/5xx responses
+        all_sites = sites_resp.json()
 
-    # 3. Store in cache for next time
-    if redis_client:
-        # Cache for 24 hours (86400 seconds)
-        redis_client.setex(SHERLOCK_SITES_KEY, 86400, json.dumps(all_sites))
-        logger.info("Sherlock sites cached in Redis.")
+        # 3. Store in cache for next time
+        if redis_client:
+            # Cache for 24 hours (86400 seconds)
+            redis_client.setex(SHERLOCK_SITES_KEY, 86400, json.dumps(all_sites))
+            logger.info("Sherlock sites cached in Redis.")
+    except Exception as e:
+        logger.warning(f"Could not fetch Sherlock sites, using fallback: {e}")
+        all_sites = FALLBACK_SITES
 
     return all_sites
 
