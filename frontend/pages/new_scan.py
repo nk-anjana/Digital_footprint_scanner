@@ -38,7 +38,11 @@ if st.button("Execute Trace Initiative", type="primary", use_container_width=Tru
         
         with res_container.container():
             st.info("Initializing communication with scan engines...")
-            res = start_scan(payload)
+            try:
+                res = start_scan(payload)
+            except Exception as e:
+                st.error("Connection Failed: Backend server is unreachable. Please run: 'uvicorn backend.main:app --reload'")
+                st.stop()
             
             if res.status_code == 202:
                 scan_id = res.json().get("scan_id")
@@ -49,26 +53,42 @@ if st.button("Execute Trace Initiative", type="primary", use_container_width=Tru
                     progress_bar = st.progress(0)
                     status_text = st.empty()
                     
-                    # Increased polling to 30 iterations (60 seconds)
+                    # Increased polling to 300 iterations (approx 10 minutes)
                     completed = False
                     final_data = None
-                    for i in range(30):
+                    for i in range(300):
                         time.sleep(2)
                         
                         # Update progress based on polling loop (visual only)
-                        visual_progress = min(95, (i + 1) * 3)
+                        visual_progress = min(95, int((i + 1) * 0.5) + 5)
                         progress_bar.progress(visual_progress)
                         status_text.caption(f"Querying distributed networks... ({visual_progress}%)")
                         
                         check = get_scan_result(scan_id)
-                        if check and check.get("status") == "Completed":
-                            progress_bar.progress(100)
-                            status_text.success("DATA SECURED & ANALYZED.")
-                            completed = True
-                            final_data = check
-                            break
+                        if check:
+                            status = check.get("status")
+                            if status == "Completed":
+                                progress_bar.progress(100)
+                                status_text.success("DATA SECURED & ANALYZED.")
+                                completed = True
+                                final_data = check
+                                break
+                            elif status == "Failed":
+                                progress_bar.progress(100)
+                                status_text.error("SCAN FAILED OR TIMED OUT.")
+                                completed = True
+                                final_data = check
+                                break
                     else:
                         st.warning("Trace taking longer than expected. It is still running in the background. Check Dashboard later.")
+                        if st.button("Check Status Again"):
+                            check = get_scan_result(scan_id)
+                            if check:
+                                status = check.get("status")
+                                if status in ["Completed", "Failed"]:
+                                    completed = True
+                                    final_data = check
+                                    st.rerun()
                 
                 # Show results dynamically
                 if completed and final_data:

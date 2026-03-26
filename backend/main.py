@@ -20,6 +20,7 @@ from backend.database import (
     get_scans_by_owner,
     delete_scan,
     init_db,
+    mark_stale_scans_failed,
 )
 
 from backend.auth.routes import router as auth_router
@@ -32,11 +33,31 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("osint_api")
 
 
+import asyncio
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    logger.info("OSINT System Initialized")
+    
+    # Run a quick cleanup of stale tasks on startup
+    cleaned = mark_stale_scans_failed()
+    logger.info(f"OSINT System Initialized. Cleaned up {cleaned} stale scans.")
+    
+    # Start a background loop to periodically clean up stale tasks
+    task = asyncio.create_task(periodic_cleanup())
+    
     yield
+    task.cancel()
+
+async def periodic_cleanup():
+    while True:
+        try:
+            await asyncio.sleep(300) # Run every 5 minutes
+            mark_stale_scans_failed()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error in periodic cleanup: {e}")
 
 
 app = FastAPI(

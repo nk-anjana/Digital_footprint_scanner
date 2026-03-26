@@ -96,7 +96,7 @@ async def check_username_with_sherlock(username: str) -> List[Dict]:
     if not username:
         return []
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
         try:
             # Step 1: Get the site list (now with caching)
             all_sites = await _get_sherlock_sites(client)

@@ -11,7 +11,11 @@ if not st.session_state.get("access_token"):
 st.title("📊 Operations Dashboard")
 st.markdown("Monitor and decrypt intelligence payloads from past operations.")
 
-scans = get_scans()
+try:
+    scans = get_scans()
+except Exception:
+    st.error("Backend Server (API) is offline. Please start it to view operations.")
+    st.stop()
 
 if not scans:
     st.info("No active operations found in the database. Head to 'New Scan' to initiate one.")
@@ -60,14 +64,22 @@ else:
         with st.spinner("Extracting secured data payload..."):
             result = get_scan_result(selected_scan)
             if result:
+                status = result.get("status")
                 findings = result.get("findings", [])
                 
-                # Display findings clearly
-                if findings:
-                    st.success("Payload successfully decrypted.")
+                if status == "Running":
+                    st.info("This scan is still running. Please check back later.")
+                elif status == "Failed":
+                    st.error("This scan failed. Check the error details below.")
                     f_df = pd.DataFrame(findings)
                     st.dataframe(f_df, use_container_width=True, hide_index=True)
                 else:
-                    st.info("Scan completed but yielded no critical footprint data.")
+                    # Display findings clearly for Completed scans
+                    if findings:
+                        st.success("Payload successfully decrypted.")
+                        f_df = pd.DataFrame(findings)
+                        st.dataframe(f_df, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Scan completed but yielded no critical footprint data.")
             else:
                 st.error("Failed to retrieve payload from the database.")

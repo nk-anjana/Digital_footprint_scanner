@@ -1,10 +1,14 @@
 import asyncio
 import socket
+import sys
+import logging
 from celery import Celery
 from backend.config import REDIS_URL
 from backend.database import update_scan_result
 from backend.osint.breach_osint import check_data_breaches
 from backend.osint.username_osint import check_username_with_sherlock
+
+logger = logging.getLogger("celery_worker")
 
 celery_app = Celery("osint_worker", broker=REDIS_URL, backend=REDIS_URL)
 
@@ -15,6 +19,10 @@ celery_app.conf.update(
     task_track_started=True,
     worker_prefetch_multiplier=1,
 )
+
+# Fix for Windows: Set the correct event loop policy to avoid "Event loop is closed" errors
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 def calculate_risk(findings: list) -> int:
     """Calculates a dynamic risk score 0-100 based on findings."""
@@ -37,6 +45,8 @@ def run_osint_scan(self, scan_id: str, email: str, username: str, domain: str):
     The main worker task. It uses asyncio.run to execute the 
     asynchronous OSINT modules.
     """
+    logger.info(f"Worker STARTING scan: {scan_id} for {email or username or domain}")
+    
     try:
         # Define an internal async function to run the tools
         async def execute_scans():
@@ -87,10 +97,25 @@ def run_osint_scan(self, scan_id: str, email: str, username: str, domain: str):
 
         # Run the async loop and get results
         findings = asyncio.run(execute_scans())
+        logger.info(f"Scan {scan_id} finished. Findings: {len(findings)}")
         
         # 3. Update the Database with findings and risk score
         update_scan_result(scan_id, findings, calculate_risk(findings))
         
     except Exception as exc:
-        # If API or network fails, retry after 30 seconds
-        self.retry(exc=exc, countdown=30)
+        logger.error(f"Scan {scan_id} failed: {exc}")
+        if self.request.retries < self.max_retries:
+            # If API or network fails, retry after 30 seconds
+            self.retry(exc=exc, countdown=30)
+        else:
+            # If retries exhausted, update DB so frontend doesn't hang
+            error_finding = [{
+                "type": "error",
+                "source": "System",
+                "value": f"Scan failed due to internal error: {str(exc)}",
+                "severity": "HIGH"
+            }]
+            try:
+                update_scan_result(scan_id, error_finding, 0, status="Failed")
+            except Exception as db_error:
+                logger.critical(f"CRITICAL: Could not update DB for failed scan {scan_id}: {db_error}")

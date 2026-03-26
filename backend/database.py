@@ -93,7 +93,9 @@ def create_user(username: str, password: str) -> None:
 
 # --- Scan Logic ---
 
-def create_scan_entry(scan_id: str, owner: str, email: str = None, username: str = None, domain: str = None) -> None:
+from typing import Optional
+
+def create_scan_entry(scan_id: str, owner: str, email: Optional[str] = None, username: Optional[str] = None, domain: Optional[str] = None) -> None:
     """Initializes a scan record. Values not provided are stored as NULL."""
     with get_db_cursor() as c:
         c.execute(
@@ -105,7 +107,7 @@ def create_scan_entry(scan_id: str, owner: str, email: str = None, username: str
             (scan_id, owner, email, username, domain, "Running", json.dumps([]), 0),
         )
 
-def update_scan_result(scan_id: str, findings: list, risk_score: int) -> None:
+def update_scan_result(scan_id: str, findings: list, risk_score: int, status: str = "Completed") -> None:
     """Updates the scan entry with results from the Celery worker."""
     with get_db_cursor() as c:
         c.execute(
@@ -114,7 +116,7 @@ def update_scan_result(scan_id: str, findings: list, risk_score: int) -> None:
             SET status = %s, findings = %s, risk_score = %s
             WHERE scan_id = %s
             """,
-            ("Completed", json.dumps(findings), risk_score, scan_id),
+            (status, json.dumps(findings), risk_score, scan_id),
         )
 
 def get_scan_result(scan_id: str) -> dict:
@@ -147,5 +149,17 @@ def delete_scan(scan_id: str, owner: str) -> bool:
             "DELETE FROM scans WHERE scan_id = %s AND owner = %s",
             (scan_id, owner),
         )
-        # Access the cursor rowcount through the context manager's inner logic
         return c.rowcount > 0
+
+def mark_stale_scans_failed(minutes: int = 15) -> int:
+    """Marks any scans stuck in 'Running' state for longer than the specified minutes as 'Failed'."""
+    with get_db_cursor() as c:
+        c.execute(
+            """
+            UPDATE scans
+            SET status = 'Failed', findings = %s, risk_score = 0
+            WHERE status = 'Running' AND created_at < DATE_SUB(NOW(), INTERVAL %s MINUTE)
+            """,
+            (json.dumps([{"type": "error", "source": "System", "value": "Scan timed out or worker crashed.", "severity": "HIGH"}]), minutes)
+        )
+        return c.rowcount

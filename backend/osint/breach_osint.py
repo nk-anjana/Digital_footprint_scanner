@@ -14,7 +14,7 @@ async def check_data_breaches(email: str) -> List[Dict]:
 
     url = f"https://api.xposedornot.com/v1/check-email/{email}"
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             resp = await client.get(url)
 
