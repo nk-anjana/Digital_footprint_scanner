@@ -12,6 +12,16 @@ from pydantic import BaseModel, model_validator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+# --- Passlib/Bcrypt Compatibility Fix ---
+try:
+    import bcrypt
+    # Manually add __about__ for passlib compatibility in Python 3.12+
+    if not hasattr(bcrypt, "__about__"):
+        bcrypt.__about__ = type("About", (object,), {"__version__": bcrypt.__version__})
+except ImportError:
+    pass
+# ----------------------------------------
+
 from backend.config import ALLOWED_ORIGINS
 from backend.celery_worker import run_osint_scan
 from backend.database import (

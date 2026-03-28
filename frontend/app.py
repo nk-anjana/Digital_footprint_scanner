@@ -104,11 +104,14 @@ else:
             if st.button("Authenticate"):
                 with st.spinner("Verifying credentials..."):
                     res = login(l_user, l_pass)
-                if res.status_code == 200:
-                    st.session_state.access_token = res.json().get("access_token")
-                    st.rerun()
-                else:
-                    st.error("Access Denied: Invalid credentials.")
+                try:
+                    if res.status_code == 200:
+                        st.session_state.access_token = res.json().get("access_token")
+                        st.rerun()
+                    else:
+                        st.error("Access Denied: Invalid credentials.")
+                except Exception:
+                    st.error("System Error: Received an invalid response from the server.")
                 
     with tab2:
         with st.container(border=True):
@@ -119,7 +122,11 @@ else:
             if st.button("Establish Identity"):
                 with st.spinner("Registering in the database..."):
                     res = register(r_user, r_pass)
-                if res.status_code == 200:
-                    st.success("Identity established. Please return to Authentication.")
-                else:
-                    st.error(res.json().get("detail", "Error registering."))
+                try:
+                    if res.status_code == 200:
+                        st.success("Identity established. Please return to Authentication.")
+                    else:
+                        error_msg = res.json().get("detail", "Error registering.")
+                        st.error(error_msg)
+                except Exception:
+                    st.error(f"Registration Failed (Status: {res.status_code}). The server might be offline or encountered an internal error.")

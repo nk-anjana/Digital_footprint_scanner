@@ -22,8 +22,6 @@ REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 # OSINT External Config (Zero Hardcoding)
 XON_API_KEY: str = os.getenv("XON_API_KEY", "")
 SHERLOCK_URL: str = os.getenv("SHERLOCK_DATA_URL", "https://raw.githubusercontent.com/sherlock-project/sherlock/master/sherlock_project/resources/data.json")
-
-# FIXED: Default limit changed to 500 so it checks all sites (including GitHub) instead of stopping at 'C'
 SHERLOCK_SITE_LIMIT: int = int(os.getenv("SHERLOCK_SITE_LIMIT", "500"))
 
 # App

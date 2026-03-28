@@ -45,7 +45,12 @@ if st.button("Execute Trace Initiative", type="primary", use_container_width=Tru
                 st.stop()
             
             if res.status_code == 202:
-                scan_id = res.json().get("scan_id")
+                try:
+                    scan_id = res.json().get("scan_id")
+                except Exception:
+                    st.error("Communication Error: Failed to parse tracking ID from the server.")
+                    st.stop()
+
                 st.success(f"Trace assigned ID: {scan_id}")
                 
                 progress_container = st.container()
