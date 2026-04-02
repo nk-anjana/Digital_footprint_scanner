@@ -1,24 +1,54 @@
 import streamlit as st
 import pandas as pd
 from api import get_scans, get_scan_result
+from style_manager import apply_custom_page_style, render_theme_toggle, apply_theme_attribute
 
 st.set_page_config(page_title="Operations Dashboard - Nexus", page_icon="📊", layout="wide")
 
+# Initialize session state
+if "access_token" not in st.session_state:
+    st.session_state.access_token = None
+
+# Check authentication
 if not st.session_state.get("access_token"):
-    st.warning("UNAUTHORIZED. Please login via the main platform.")
+    st.warning("🔒 UNAUTHORIZED - Please login first")
+    if st.button("Go to Login"):
+        st.switch_page("Login.py")
     st.stop()
+
+# Render theme toggle and apply styling
+try:
+    render_theme_toggle()
+    apply_theme_attribute()
+except ImportError:
+    pass
+
+apply_custom_page_style("Dashboard")
+
+# Sidebar logout button
+with st.sidebar:
+    st.markdown("---")
+    username = st.session_state.get("username", "User")
+    st.caption(f"👤 Logged in as: **{username}**")
+    
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.access_token = None
+        st.session_state.username = None
+        st.session_state.clear()
+        st.switch_page("Login.py")
 
 st.title("📊 Operations Dashboard")
 st.markdown("Monitor and decrypt intelligence payloads from past operations.")
 
 try:
     scans = get_scans()
-except Exception:
-    st.error("Backend Server (API) is offline. Please start it to view operations.")
+except Exception as e:
+    st.error(f"❌ Backend Authentication Failed: {str(e)}")
+    st.info("Make sure you have a valid access token and the API is running.")
     st.stop()
 
 if not scans:
-    st.info("No active operations found in the database. Head to 'New Scan' to initiate one.")
+    st.info("ℹ️ No active operations found. Navigate to **New Scan** to initiate one.")
 else:
     # High-level Metrics
     total_scans = len(scans)
@@ -26,9 +56,9 @@ else:
     avg_risk = sum(s.get('risk_score', 0) for s in scans) / total_scans if total_scans > 0 else 0
     
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Operations", total_scans)
-    col2.metric("Successful Traces", completed_scans)
-    col3.metric("Average Threat Risk", f"{int(avg_risk)} / 100")
+    col1.metric("📌 Total Operations", total_scans)
+    col2.metric("✅ Successful Traces", completed_scans)
+    col3.metric("⚠️ Average Threat Risk", f"{int(avg_risk)} / 100")
     
     st.markdown("---")
     

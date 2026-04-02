@@ -1,11 +1,40 @@
 import streamlit as st
 from api import analyze_image
+from style_manager import apply_custom_page_style, render_theme_toggle, apply_theme_attribute
 
 st.set_page_config(page_title="Forensics - Nexus", page_icon="📷", layout="wide")
 
+# Initialize session state
+if "access_token" not in st.session_state:
+    st.session_state.access_token = None
+
+# Check authentication
 if not st.session_state.get("access_token"):
-    st.warning("UNAUTHORIZED. Please login via the main platform.")
+    st.warning("🔒 UNAUTHORIZED - Please login first")
+    if st.button("Go to Login"):
+        st.switch_page("Login.py")
     st.stop()
+
+# Render theme toggle and apply styling
+try:
+    render_theme_toggle()
+    apply_theme_attribute()
+except ImportError:
+    pass
+
+apply_custom_page_style("Forensics")
+
+# Sidebar logout button
+with st.sidebar:
+    st.markdown("---")
+    username = st.session_state.get("username", "User")
+    st.caption(f"👤 Logged in as: **{username}**")
+    
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.access_token = None
+        st.session_state.username = None
+        st.session_state.clear()
+        st.switch_page("Login.py")
 
 st.title("📷 Digital Forensics: EXIF Extractor")
 st.markdown("Upload image payloads to strip hidden metadata, device information, and embedded geospatial coordinates.")
